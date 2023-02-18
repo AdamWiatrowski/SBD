@@ -1,7 +1,7 @@
 # SBD
 
 todo:
-
+(niedziela)
 - zmiana formatu daty.
 - Rezerwacja sali operacyjnej.
 - Tworzenie wydarzenia - operacja/zabieg.
@@ -13,5 +13,6 @@ todo:
 - Sprawdzenie bazy danych pod wzgledem poprawnosci.
 
 extras:
+(poniedzialek)
 - logi.
 - jedna osoba moze edytowac; inaczej tylko przegladanie.
