@@ -2,12 +2,8 @@
 
 todo:
 (niedziela)
-- Dodanie tabeli 'Wypis'. + formularz;
-
+- formularz Wypis
 - ograniczenia i powiadomienia.
-
-
-- Sprawdzenie bazy danych pod wzgledem poprawnosci.
 
 extras:
 (poniedzialek)
