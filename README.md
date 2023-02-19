@@ -2,10 +2,8 @@
 
 todo:
 (niedziela)
-- zmiana formatu daty.
-- Rezerwacja sali operacyjnej.
 - Tworzenie wydarzenia - operacja/zabieg.
-- Dodanie tabeli 'Wypis'.
+- Dodanie tabeli 'Wypis'. + formularz;
 
 - ograniczenia i powiadomienia.
 
@@ -14,5 +12,4 @@ todo:
 
 extras:
 (poniedzialek)
-- logi.
 - jedna osoba moze edytowac; inaczej tylko przegladanie.
