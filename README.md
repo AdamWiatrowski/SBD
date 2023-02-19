@@ -2,7 +2,6 @@
 
 todo:
 (niedziela)
-- Tworzenie wydarzenia - operacja/zabieg.
 - Dodanie tabeli 'Wypis'. + formularz;
 
 - ograniczenia i powiadomienia.
