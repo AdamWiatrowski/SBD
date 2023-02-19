@@ -2,7 +2,6 @@
 
 todo:
 (niedziela)
-- formularz Wypis
 - ograniczenia i powiadomienia.
 
 extras:
