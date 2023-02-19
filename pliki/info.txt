@@ -1,0 +1,5 @@
+Fragmenty kodu:
+1. pacjenci
+2. recepty
+3. wypisy
+4. zabiegoperacja
