@@ -1,5 +1,6 @@
-Fragmenty kodu:
-1. pacjenci
-2. recepty
-3. wypisy
-4. zabiegoperacja
+Projekt:
+1. make-database.py       - Tworzy baze danych szpital.db.
+2. szpital.db             - Baza danych.
+3. main.py                - Aplikacja dla uzytkownika.
+4. config.txt             - Konfiguracja aplikacji (w naszym przypadku zapobiega jedoczesnej edycji bazy w celu unikniecia kolizji).
+5. log.txt                - Logi, w ktorych zapisani sa uzytkownicy oraz ich dzialania.
