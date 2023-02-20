@@ -1,9 +1,3 @@
 # SBD
-
-todo:
-(niedziela)
-- ograniczenia i powiadomienia.
-
-extras:
-(poniedzialek)
-- jedna osoba moze edytowac; inaczej tylko przegladanie.
+Projekt by:
+- Adam Wiatrowski: 148510
