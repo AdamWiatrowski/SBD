@@ -228,6 +228,39 @@ class AddChorobaDialog(QDialog):
                 self.rek_leki_input.text(), \
                 self.postepowanie_input.text()
 
+class DeleteChorobaDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Usuń chorobę")
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        # utworzenie listy rozwijanej z nazwami chorób
+        self.combo_box = QComboBox()
+        self.populate_combo_box()
+        layout.addWidget(QLabel("Wybierz chorobę do usunięcia:"))
+        layout.addWidget(self.combo_box)
+
+        # przyciski OK i Anuluj
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+    def populate_combo_box(self):
+        # pobranie nazw chorób z bazy danych
+        conn = sqlite3.connect("szpital.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT nazwa FROM choroba")
+        results = cursor.fetchall()
+        # dodanie nazw chorób do listy rozwijanej
+        for result in results:
+            self.combo_box.addItem(result[0])
+
+    def get_data(self):
+        # zwrócenie wybranej choroby
+        return self.combo_box.currentText()
+
 class ChorobyWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -269,6 +302,10 @@ class ChorobyWindow(QMainWindow):
         add_choroba_action = QAction('Dodaj nowa chorobe', self)
         add_choroba_action.triggered.connect(self.show_add_choroba_dialog)
 
+        # USUWANIE
+        delete_choroba_action = QAction('Usun chorobe', self)
+        delete_choroba_action.triggered.connect(self.show_delete_choroba_dialog)
+
         self.szukaj_wpisz = QLineEdit()
         self.szukaj_wpisz.setMaximumWidth(100)
 
@@ -277,9 +314,36 @@ class ChorobyWindow(QMainWindow):
         search_choroba.triggered.connect(self.search_choroba_final)
 
         toolbar.addAction(add_choroba_action)
+        toolbar.addAction(delete_choroba_action)
+
         toolbar.addAction(search_choroba)
         toolbar.addWidget(self.szukaj_wpisz)
 
+
+    def show_delete_choroba_dialog(self):
+        if check_config():
+            self.show_error()
+        else:
+            # Zajmujemy:
+            change_blocked()
+            dialog = DeleteChorobaDialog(self)
+            if dialog.exec_():
+                id = dialog.get_data()
+                self.conn = sqlite3.connect('szpital.db')
+                self.conn.set_trace_callback(log)
+
+                self.cur = self.conn.cursor()
+
+                # Dodaj nową receptę do bazy danych
+                self.cur.execute("DELETE FROM choroba WHERE nazwa = ?", (id,))
+
+                # Odśwież widok tabeli
+                self.refresh_table()
+                self.conn.commit()
+                self.conn.close()
+
+            # Zwalniamy:
+            change_blocked()
 
     def show_add_choroba_dialog(self):
         if check_config():
@@ -390,6 +454,31 @@ class AddPokojeWindow(QDialog):
     def get_data(self):
         return self.liczba_lozek.value(), self.liczba_wolnych_lozek.value()
 
+class DeletePokojDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Usuń pokój")
+        self.layout = QVBoxLayout(self)
+        self.comboBox = QComboBox(self)
+        self.layout.addWidget(self.comboBox)
+        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        self.layout.addWidget(self.buttonBox)
+        self.fill_combobox()
+
+    def fill_combobox(self):
+        conn = sqlite3.connect("szpital.db")
+        c = conn.cursor()
+        c.execute("SELECT numer_pokoju FROM pokoje")
+        rows = c.fetchall()
+        for row in rows:
+            self.comboBox.addItem(str(row[0]))
+        conn.close()
+
+    def get_data(self):
+        return self.comboBox.currentText()
+
 class PokojeWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -431,6 +520,9 @@ class PokojeWindow(QMainWindow):
         add_pokoj_action = QAction('Dodaj nowy pokoj', self)
         add_pokoj_action.triggered.connect(self.show_add_pokoj_dialog)
 
+        delete_pokoj_action = QAction('Usun pokoj', self)
+        delete_pokoj_action.triggered.connect(self.show_delete_pokoj_dialog)
+
         self.szukaj_wpisz = QLineEdit()
         self.szukaj_wpisz.setMaximumWidth(100)
 
@@ -438,6 +530,7 @@ class PokojeWindow(QMainWindow):
         search_pokoj.triggered.connect(self.search_pokoj_final)
 
         toolbar.addAction(add_pokoj_action)
+        toolbar.addAction(delete_pokoj_action)
         toolbar.addAction(search_pokoj)
         toolbar.addWidget(self.szukaj_wpisz)
 
@@ -459,6 +552,31 @@ class PokojeWindow(QMainWindow):
                 # Dodaj nową receptę do bazy danych
                 self.cur.execute('INSERT INTO pokoje (liczba_lozek, liczba_wolnych_lozek) VALUES (?, ?)', (int(liczba_lozek), int(liczba_wolnych_lozek)))
 
+                # Odśwież widok tabeli
+                self.refresh_table()
+                self.conn.commit()
+                self.conn.close()
+
+            # Zwalniamy:
+            change_blocked()
+
+    def show_delete_pokoj_dialog(self):
+        if check_config():
+            self.show_error()
+        else:
+            # Zajmujemy:
+            change_blocked()
+            dialog = DeletePokojDialog(self)
+            if dialog.exec_():
+                numer = dialog.get_data()
+
+                self.conn = sqlite3.connect('szpital.db')
+                self.conn.set_trace_callback(log)
+
+                self.cur = self.conn.cursor()
+
+                # Dodaj nową receptę do bazy danych
+                self.cur.execute("DELETE FROM pokoje WHERE numer_pokoju = ?", (numer,))
                 # Odśwież widok tabeli
                 self.refresh_table()
                 self.conn.commit()
@@ -646,6 +764,44 @@ class AddPacjentDialog(QDialog):
                self.pokoj_input.currentText(), \
                self.choroba_input.currentText(), \
                self.lekarz_input.currentText().split(' - ')[0]
+
+class DeletePacjentDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Usuń pacjenta")
+
+        # Utwórz combo box
+        self.comboBox = QComboBox(self)
+        self.comboBox.setMinimumWidth(250)
+        self.comboBox.setFocusPolicy(1)
+
+        # Pobierz dane z bazy danych i dodaj je do combo box
+        connection = sqlite3.connect("szpital.db")
+        cursor = connection.cursor()
+        cursor.execute("SELECT id_p, imie, nazwisko FROM pacjenci")
+        rows = cursor.fetchall()
+        for row in rows:
+            id_p, imie, nazwisko = row
+            self.comboBox.addItem(f"{id_p}: {imie} {nazwisko}")
+        connection.close()
+
+        # Utwórz przyciski
+        self.buttonBox = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self
+        )
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        # Utwórz układ i dodaj elementy
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.comboBox)
+        layout.addWidget(self.buttonBox)
+
+    def get_data(self):
+        # Pobierz wybrany id_p
+        selected_item = self.comboBox.currentText()
+        return selected_item.split(":")[0].strip()
+
 # todo + add aliases
 class PacjenciWindow(QMainWindow):
     def __init__(self, parent=None):
@@ -689,6 +845,9 @@ class PacjenciWindow(QMainWindow):
         add_pacjent_action = QAction('Dodaj nowego pacjenta', self)
         add_pacjent_action.triggered.connect(self.show_add_pacjent_dialog)
 
+        delete_pacjent_action = QAction('Usun pacjenta', self)
+        delete_pacjent_action.triggered.connect(self.show_delete_pacjent_dialog)
+
         self.szukaj_wpisz = QLineEdit()
         self.szukaj_wpisz.setMaximumWidth(100)
 
@@ -698,6 +857,7 @@ class PacjenciWindow(QMainWindow):
 
 
         toolbar.addAction(add_pacjent_action)
+        toolbar.addAction(delete_pacjent_action)
         toolbar.addAction(search_pacjent)
         toolbar.addWidget(self.szukaj_wpisz)
 
@@ -736,6 +896,31 @@ class PacjenciWindow(QMainWindow):
                     error_box.setWindowTitle("Błąd")
                     error_box.setText("Niektóre pola są bledne! Wypełnij poprawnie pola.")
                     error_box.exec_()
+            # Zwalniamy:
+            change_blocked()
+
+    def show_delete_pacjent_dialog(self):
+        if check_config():
+            self.show_error()
+        else:
+            # Zajmujemy:
+            change_blocked()
+            dialog = DeletePacjentDialog(self)
+            if dialog.exec_():
+                id = dialog.get_data()
+
+                self.conn = sqlite3.connect('szpital.db')
+                self.conn.set_trace_callback(log)
+
+                self.cur = self.conn.cursor()
+
+                # Dodaj nową receptę do bazy danych
+                self.cur.execute("DELETE FROM pacjenci WHERE id_p = ?", (id,))
+                # Odśwież widok tabeli
+                self.refresh_table()
+                self.conn.commit()
+                self.conn.close()
+
             # Zwalniamy:
             change_blocked()
 
@@ -874,6 +1059,43 @@ class AddLekarzWindow(QDialog):
 
         return nazwisko, imie, plec, wiek, data_zatrudnienia, pensja, pozycja
 
+class DeleteLekarzDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Usuń lekarza")
+
+        # Utwórz combo box
+        self.comboBox = QComboBox(self)
+        self.comboBox.setMinimumWidth(250)
+        self.comboBox.setFocusPolicy(1)
+
+        # Pobierz dane z bazy danych i dodaj je do combo box
+        connection = sqlite3.connect("szpital.db")
+        cursor = connection.cursor()
+        cursor.execute("SELECT id_l, imie, nazwisko FROM lekarz")
+        rows = cursor.fetchall()
+        for row in rows:
+            id_l, imie, nazwisko = row
+            self.comboBox.addItem(f"{id_l}: {imie} {nazwisko}")
+        connection.close()
+
+        # Utwórz przyciski
+        self.buttonBox = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self
+        )
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        # Utwórz układ i dodaj elementy
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.comboBox)
+        layout.addWidget(self.buttonBox)
+
+    def get_data(self):
+        # Pobierz wybrany id_p
+        selected_item = self.comboBox.currentText()
+        return selected_item.split(":")[0].strip()
+
 class LekarzeWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -913,8 +1135,11 @@ class LekarzeWindow(QMainWindow):
         toolbar = QToolBar()
         self.addToolBar(toolbar)
 
-        add_lekarz_action = QAction('Dodaj nową receptę', self)
+        add_lekarz_action = QAction('Dodaj nowego lekarza', self)
         add_lekarz_action.triggered.connect(self.show_add_lekarz_dialog)
+
+        delete_lekarz_action = QAction('Usun lekarza', self)
+        delete_lekarz_action.triggered.connect(self.show_delete_lekarz_dialog)
 
         self.szukaj_wpisz = QLineEdit()
         self.szukaj_wpisz.setMaximumWidth(100)
@@ -924,6 +1149,8 @@ class LekarzeWindow(QMainWindow):
         search_lekarz.triggered.connect(self.search_lekarz_final)
 
         toolbar.addAction(add_lekarz_action)
+        toolbar.addAction(delete_lekarz_action)
+
         toolbar.addAction(search_lekarz)
         toolbar.addWidget(self.szukaj_wpisz)
 
@@ -943,6 +1170,31 @@ class LekarzeWindow(QMainWindow):
                 self.cur = self.conn.cursor()
 
                 self.cur.execute('INSERT INTO lekarz (nazwisko, imie, plec, wiek, data_zatrudnienia, pensja, pozycja) VALUES (?, ?, ?, ?, ?, ?, ?)', (nazwisko, imie, plec, wiek, data_zatrudnienia, pensja, pozycja))
+
+                # Odśwież widok tabeli
+                self.refresh_table()
+                self.conn.commit()
+                self.conn.close()
+
+            # Zwalniamy:
+            change_blocked()
+
+    def show_delete_lekarz_dialog(self):
+        if check_config():
+            self.show_error()
+        else:
+            # Zajmujemy:
+            change_blocked()
+            dialog = DeleteLekarzDialog(self)
+            if dialog.exec_():
+                id = dialog.get_data()
+
+                # Dodaj nowy zabieg/operację do bazy danych
+                self.conn = sqlite3.connect('szpital.db')
+                self.conn.set_trace_callback(log)
+                self.cur = self.conn.cursor()
+
+                self.cur.execute("DELETE FROM lekarz WHERE id_l = ?", (id,))
 
                 # Odśwież widok tabeli
                 self.refresh_table()
@@ -1068,6 +1320,39 @@ class AddLekiDialog(QDialog):
                 self.przeciwskazania_input.toPlainText(), \
                 self.moze_wystapic_input.toPlainText()
 
+class DeleteLekiDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Usuń lek")
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        # utworzenie listy rozwijanej z nazwami chorób
+        self.combo_box = QComboBox()
+        self.populate_combo_box()
+        layout.addWidget(QLabel("Wybierz lek do usunięcia:"))
+        layout.addWidget(self.combo_box)
+
+        # przyciski OK i Anuluj
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+    def populate_combo_box(self):
+        # pobranie nazw chorób z bazy danych
+        conn = sqlite3.connect("szpital.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT nazwa FROM leki")
+        results = cursor.fetchall()
+        # dodanie nazw chorób do listy rozwijanej
+        for result in results:
+            self.combo_box.addItem(result[0])
+
+    def get_data(self):
+        # zwrócenie wybranej choroby
+        return self.combo_box.currentText()
+
 class LekiWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1110,6 +1395,9 @@ class LekiWindow(QMainWindow):
         add_lek_action = QAction('Dodaj nowy lek', self)
         add_lek_action.triggered.connect(self.show_add_lek_dialog)
 
+        delete_lek_action = QAction('Usun lek', self)
+        delete_lek_action.triggered.connect(self.show_delete_lek_dialog)
+
 
 
         self.szukaj_wpisz = QLineEdit()
@@ -1120,6 +1408,8 @@ class LekiWindow(QMainWindow):
         search_lek.triggered.connect(self.search_lek_final)
 
         toolbar.addAction(add_lek_action)
+        toolbar.addAction(delete_lek_action)
+
         toolbar.addAction(search_lek)
         toolbar.addWidget(self.szukaj_wpisz)
 
@@ -1140,6 +1430,30 @@ class LekiWindow(QMainWindow):
 
                 self.cur.execute('INSERT INTO leki (nazwa, na_chorobe, na_recepte, ile_razy, przeciwskazania, może_wystąpić) VALUES (?, ?, ?, ?, ?, ?)', (nazwa, na_chorobe, na_recepte, ile_razy, przeciwskazania, może_wystąpić))
 
+                # Odśwież widok tabeli
+                self.refresh_table()
+                self.conn.commit()
+                self.conn.close()
+
+            # Zwalniamy:
+            change_blocked()
+
+    def show_delete_lek_dialog(self):
+        if check_config():
+            self.show_error()
+        else:
+            # Zajmujemy:
+            change_blocked()
+            dialog = DeleteLekiDialog(self)
+            if dialog.exec_():
+                id_lek = dialog.get_data()
+
+                # Dodaj nowy zabieg/operację do bazy danych
+                self.conn = sqlite3.connect('szpital.db')
+                self.conn.set_trace_callback(log)
+                self.cur = self.conn.cursor()
+
+                self.cur.execute("DELETE FROM leki WHERE nazwa = ?", (id_lek,))
                 # Odśwież widok tabeli
                 self.refresh_table()
                 self.conn.commit()
@@ -1238,6 +1552,39 @@ class AddLekiMagazynDialog(QDialog):
     def get_data(self):
         return self.nazwa_leku_input.currentText(), self.ilosc_sztuk_input.value()
 
+class DeleteLekiMagazynDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Usuń lek z magazynu")
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        # utworzenie listy rozwijanej z nazwami chorób
+        self.combo_box = QComboBox()
+        self.populate_combo_box()
+        layout.addWidget(QLabel("Wybierz lek z magazynu do usunięcia:"))
+        layout.addWidget(self.combo_box)
+
+        # przyciski OK i Anuluj
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+    def populate_combo_box(self):
+        # pobranie nazw chorób z bazy danych
+        conn = sqlite3.connect("szpital.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT nazwa FROM leki_magazyn")
+        results = cursor.fetchall()
+        # dodanie nazw chorób do listy rozwijanej
+        for result in results:
+            self.combo_box.addItem(result[0])
+
+    def get_data(self):
+        # zwrócenie wybranej choroby
+        return self.combo_box.currentText()
+
 class LekiMagazynWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1277,8 +1624,11 @@ class LekiMagazynWindow(QMainWindow):
         toolbar = QToolBar()
         self.addToolBar(toolbar)
 
-        add_leki_magazyn_action = QAction('Dodaj nowy zabieg/operację', self)
+        add_leki_magazyn_action = QAction('Dodaj nowy lek w magazynie', self)
         add_leki_magazyn_action.triggered.connect(self.show_add_lek_magazyn_dialog)
+
+        delete_leki_magazyn_action = QAction('Usun lek z magazynu', self)
+        delete_leki_magazyn_action.triggered.connect(self.show_delete_lek_magazyn_dialog)
 
         self.szukaj_wpisz = QLineEdit()
         self.szukaj_wpisz.setMaximumWidth(100)
@@ -1288,6 +1638,8 @@ class LekiMagazynWindow(QMainWindow):
         search_leki_magazyn.triggered.connect(self.search_leki_magazyn_final)
 
         toolbar.addAction(add_leki_magazyn_action)
+        toolbar.addAction(delete_leki_magazyn_action)
+
         toolbar.addAction(search_leki_magazyn)
         toolbar.addWidget(self.szukaj_wpisz)
 
@@ -1315,6 +1667,32 @@ class LekiMagazynWindow(QMainWindow):
 
             # Zwalniamy:
             change_blocked()
+
+    def show_delete_lek_magazyn_dialog(self):
+        if check_config():
+            self.show_error()
+        else:
+            # Zajmujemy:
+            change_blocked()
+            dialog = DeleteLekiMagazynDialog(self)
+            if dialog.exec_():
+                id = dialog.get_data()
+
+                # Dodaj nowy zabieg/operację do bazy danych
+                self.conn = sqlite3.connect('szpital.db')
+                self.conn.set_trace_callback(log)
+                self.cur = self.conn.cursor()
+
+                self.cur.execute("DELETE FROM leki_magazyn WHERE nazwa = ?", (id,))
+
+                # Odśwież widok tabeli
+                self.refresh_table()
+                self.conn.commit()
+                self.conn.close()
+
+            # Zwalniamy:
+            change_blocked()
+
 
     def refresh_table(self):
         # Zapytanie SQL o wszystkie zabiegi/operacje
@@ -1457,6 +1835,46 @@ class AddZabiegoperacjaDialog(QDialog):
         data = self.data_edit.date().toString('yyyy-MM-dd')
         return data, lekarz, sala, pacjent, rodzaj
 
+class DeleteZabiegOperacjaDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle("Usuń Zabieg/Operację")
+        self.layout = QVBoxLayout()
+
+        self.combo_box = QComboBox(self)
+
+        # Połączenie z bazą danych
+        self.conn = sqlite3.connect("szpital.db")
+        self.cur = self.conn.cursor()
+
+        # Pobranie danych do QComboBoxa
+        self.cur.execute("SELECT id_oz, pacjenci.imie, pacjenci.nazwisko, lekarz.imie, lekarz.nazwisko from zabiegoperacja join lekarz on zabiegoperacja.lekarz = lekarz.id_l join pacjenci on zabiegoperacja.pacjent = pacjenci.id_p")
+        results = self.cur.fetchall()
+        for result in results:
+            id_oz = result[0]
+            imie_pacjenta = result[1]
+            nazwisko_pacjenta = result[2]
+            imie_lekarza = result[3]
+            nazwisko_lekarza = result[4]
+            text = f"{id_oz}, {imie_pacjenta} {nazwisko_pacjenta}, {imie_lekarza} {nazwisko_lekarza}"
+            self.combo_box.addItem(text)
+
+        self.layout.addWidget(QLabel("Wybierz Zabieg/Operację/Magazyn do usunięcia:"))
+        self.layout.addWidget(self.combo_box)
+
+        # Przyciski OK i Anuluj
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        self.layout.addWidget(button_box)
+
+        self.setLayout(self.layout)
+
+    def get_data(self):
+        # Zwrócenie id_oz wybranej pozycji w QComboBox
+        return self.combo_box.currentText().split(", ")[0]
+
 class ZabiegoperacjaWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1499,6 +1917,9 @@ class ZabiegoperacjaWindow(QMainWindow):
         add_zabieg_action = QAction('Dodaj nowy zabieg/operację', self)
         add_zabieg_action.triggered.connect(self.show_add_zabieg_dialog)
 
+        delete_zabieg_action = QAction('Usun zabieg/operację', self)
+        delete_zabieg_action.triggered.connect(self.show_delete_zabiegoperacja_dialog)
+
         toolbar.addAction(add_zabieg_action)
 
         self.szukaj_wpisz = QLineEdit()
@@ -1508,7 +1929,9 @@ class ZabiegoperacjaWindow(QMainWindow):
         search_zabiegop = QAction('Szukaj', self)
         search_zabiegop.triggered.connect(self.search_zabiegoperacja_final)
 
-        toolbar.addAction(search_zabiegop)
+        toolbar.addAction(add_zabieg_action)
+        toolbar.addAction(delete_zabieg_action)
+
         toolbar.addAction(search_zabiegop)
         toolbar.addWidget(self.szukaj_wpisz)
 
@@ -1542,6 +1965,31 @@ class ZabiegoperacjaWindow(QMainWindow):
                     error_box.setWindowTitle("Błąd")
                     error_box.setText("Niektóre pola są puste! Wypełnij wszystkie pola.")
                     error_box.exec_()
+
+            # Zwalniamy:
+            change_blocked()
+
+    def show_delete_zabiegoperacja_dialog(self):
+        if check_config():
+            self.show_error()
+        else:
+            # Zajmujemy:
+            change_blocked()
+            dialog = DeleteZabiegOperacjaDialog(self)
+            if dialog.exec_():
+                id = dialog.get_data()
+
+                # Dodaj nowy zabieg/operację do bazy danych
+                self.conn = sqlite3.connect('szpital.db')
+                self.conn.set_trace_callback(log)
+                self.cur = self.conn.cursor()
+
+                self.cur.execute("DELETE FROM zabiegoperacja WHERE id_oz = ?", (id,))
+
+                # Odśwież widok tabeli
+                self.refresh_table()
+                self.conn.commit()
+                self.conn.close()
 
             # Zwalniamy:
             change_blocked()
@@ -1693,6 +2141,43 @@ class AddReceptaDialog(QDialog):
         data = self.data_edit.date().toString('yyyy-MM-dd')
         return lekarz, pacjent, nazwa, data
 
+class DeleteReceptaDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle("Usuń recepte")
+        self.layout = QVBoxLayout()
+
+        self.combo_box = QComboBox(self)
+
+        # Połączenie z bazą danych
+        self.conn = sqlite3.connect("szpital.db")
+        self.cur = self.conn.cursor()
+
+        # Pobranie danych do QComboBoxa
+        self.cur.execute(
+            "SELECT id_r, pacjenci.imie, pacjenci.nazwisko, lekarz.imie, lekarz.nazwisko, lek, data_wystawienia FROM recepty JOIN lekarz on recepty.lekarz_wystawiajacy = lekarz.id_l JOIN pacjenci on recepty.pacjent = pacjenci.id_p")
+        recepty = self.cur.fetchall()
+        for recepta in recepty:
+            self.combo_box.addItem(
+                f"{recepta[0]} - {recepta[1]} {recepta[2]}, {recepta[3]} {recepta[4]}, {recepta[5]}, {recepta[6]}")
+
+
+        self.layout.addWidget(QLabel("Wybierz recepte do usunięcia:"))
+        self.layout.addWidget(self.combo_box)
+
+        # Przyciski OK i Anuluj
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        self.layout.addWidget(button_box)
+
+        self.setLayout(self.layout)
+
+    def get_data(self):
+        # Zwrócenie id_oz wybranej pozycji w QComboBox
+        return self.combo_box.currentText().split('-')[0].strip()
+
 class ReceptyWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1735,7 +2220,8 @@ class ReceptyWindow(QMainWindow):
         add_recepta_action = QAction('Dodaj nową receptę', self)
         add_recepta_action.triggered.connect(self.show_add_recepta_dialog)
 
-
+        delete_recepta_action = QAction('Usun receptę', self)
+        delete_recepta_action.triggered.connect(self.show_delete_recepta_dialog)
 
         self.szukaj_wpisz = QLineEdit()
         self.szukaj_wpisz.setMaximumWidth(100)
@@ -1745,6 +2231,8 @@ class ReceptyWindow(QMainWindow):
         search_recepta.triggered.connect(self.search_recepta_final)
 
         toolbar.addAction(add_recepta_action)
+        toolbar.addAction(delete_recepta_action)
+
         toolbar.addAction(search_recepta)
         toolbar.addWidget(self.szukaj_wpisz)
 
@@ -1766,6 +2254,31 @@ class ReceptyWindow(QMainWindow):
                 # Dodaj nową receptę do bazy danych
                 self.cur.execute('INSERT INTO recepty (lekarz_wystawiajacy, pacjent, lek, data_wystawienia) VALUES (?, ?, ?, ?)', (int(lekarz), int(pacjent), nazwa, data_wydania))
 
+                # Odśwież widok tabeli
+                self.refresh_table()
+                self.conn.commit()
+                self.conn.close()
+
+            # Zwalniamy:
+            change_blocked()
+
+    def show_delete_recepta_dialog(self):
+        if check_config():
+            self.show_error()
+        else:
+            # Zajmujemy:
+            change_blocked()
+            dialog = DeleteReceptaDialog(self)
+            if dialog.exec_():
+                id = dialog.get_data()
+
+                self.conn = sqlite3.connect('szpital.db')
+                self.conn.set_trace_callback(log)
+
+                self.cur = self.conn.cursor()
+
+                # Dodaj nową receptę do bazy danych
+                self.cur.execute("DELETE FROM recepty WHERE id_r = ?", (id,))
                 # Odśwież widok tabeli
                 self.refresh_table()
                 self.conn.commit()
@@ -1932,6 +2445,44 @@ class AddWypis(QDialog):
         print(pacjent, lekarz, data_przyjecia, data_wypisu, choroba)
         return pacjent, lekarz, data_przyjecia, data_wypisu, choroba
 
+class DeleteWypisDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle("Usuń wypis")
+
+        self.layout = QVBoxLayout(self)
+
+        self.comboBox = QComboBox(self)
+        self.comboBox.setMinimumWidth(250)
+
+        # Pobieranie informacji o wypisach z bazy danych i dodawanie ich do listy rozwijanej
+        connection = sqlite3.connect("szpital.db")
+        cursor = connection.cursor()
+        cursor.execute("SELECT id_w, lekarz.imie, lekarz.nazwisko, pacjenci.imie, pacjenci.nazwisko, data_przyjęcia, data_wypisu, wypis.choroba \
+                       FROM wypis \
+                       JOIN lekarz ON wypis.lekarz = lekarz.id_l \
+                       JOIN pacjenci ON wypis.pacjent = pacjenci.id_p")
+        wypisy = cursor.fetchall()
+        for wypis in wypisy:
+            text = f"{wypis[0]} - {wypis[1]} {wypis[2]} - {wypis[3]} {wypis[4]} - {wypis[5]} - {wypis[6]} - {wypis[7]}"
+            self.comboBox.addItem(text)
+        connection.close()
+
+        self.layout.addWidget(self.comboBox)
+
+        # Przyciski OK i Anuluj
+        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
+        self.layout.addWidget(self.buttonBox)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+    def get_data(self):
+        # Zwraca wybrane id_w
+        wypis_info = self.comboBox.currentText().split(" - ")
+        id_w = wypis_info[0]
+        return id_w
+
 class WypisWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1993,6 +2544,8 @@ class WypisWindow(QMainWindow):
         add_wypis_action = QAction('Dodaj nowy wypis', self)
         add_wypis_action.triggered.connect(self.show_add_wypis_dialog)
 
+        delete_wypis_action = QAction('Usun wypis', self)
+        delete_wypis_action.triggered.connect(self.show_delete_wypis_dialog)
 
 
         self.szukaj_wpisz = QLineEdit()
@@ -2003,6 +2556,8 @@ class WypisWindow(QMainWindow):
         search_wypis.triggered.connect(self.search_wypis_final)
 
         toolbar.addAction(add_wypis_action)
+        toolbar.addAction(delete_wypis_action)
+
         toolbar.addAction(search_wypis)
         toolbar.addWidget(self.szukaj_wpisz)
 
@@ -2035,6 +2590,31 @@ class WypisWindow(QMainWindow):
 
                 self.conn.commit()
                 self.conn.close()
+            # Zwalniamy:
+            change_blocked()
+
+    def show_delete_wypis_dialog(self):
+        if check_config():
+            self.show_error()
+        else:
+            # Zajmujemy:
+            change_blocked()
+            dialog = DeleteWypisDialog(self)
+            if dialog.exec_():
+                id = dialog.get_data()
+
+                self.conn = sqlite3.connect('szpital.db')
+                self.conn.set_trace_callback(log)
+
+                self.cur = self.conn.cursor()
+
+                # Dodaj nową receptę do bazy danych
+                self.cur.execute("DELETE FROM wypis WHERE id_w = ?", (id,))
+                # Odśwież widok tabeli
+                self.refresh_table()
+                self.conn.commit()
+                self.conn.close()
+
             # Zwalniamy:
             change_blocked()
 
