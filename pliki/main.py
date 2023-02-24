@@ -618,7 +618,7 @@ class DeletePokojDialog(QDialog):
     def fill_combobox(self):
         conn = sqlite3.connect("szpital.db")
         c = conn.cursor()
-        c.execute("SELECT numer_pokoju FROM pokoje")
+        c.execute("SELECT numer_pokoju FROM pokoje WHERE liczba_lozek = liczba_wolnych_lozek")
         rows = c.fetchall()
         for row in rows:
             self.comboBox.addItem(str(row[0]))
@@ -1250,7 +1250,15 @@ class PacjenciWindow(QMainWindow):
                 self.cur = self.conn.cursor()
 
                 # Dodaj nową receptę do bazy danych
+                self.cur.execute("SELECT pokoj from pacjenci where id_p = ?", (id,))
+                result = self.cur.fetchone()
+                numer_pokoju = result[0] if result else None
+
                 self.cur.execute("DELETE FROM pacjenci WHERE id_p = ?", (id,))
+                self.cur.execute(
+                    'UPDATE pokoje SET liczba_wolnych_lozek = liczba_wolnych_lozek + 1 WHERE numer_pokoju = ?',
+                    (numer_pokoju,))
+
                 # Odśwież widok tabeli
                 self.refresh_table()
                 self.conn.commit()
@@ -1704,6 +1712,7 @@ class LekarzeWindow(QMainWindow):
                 self.cur = self.conn.cursor()
 
                 self.cur.execute("DELETE FROM lekarz WHERE id_l = ?", (id,))
+                self.cur.execute("DELETE FROM zabiegoperacja WHERE lekarz = ?", (id,))
 
                 # Odśwież widok tabeli
                 self.refresh_table()
@@ -2024,7 +2033,9 @@ class LekiWindow(QMainWindow):
                 self.cur = self.conn.cursor()
 
                 self.cur.execute('INSERT INTO leki (nazwa, na_chorobe, na_recepte, ile_razy, przeciwskazania, może_wystąpić) VALUES (?, ?, ?, ?, ?, ?)', (nazwa, na_chorobe, na_recepte, ile_razy, przeciwskazania, może_wystąpić))
-
+                self.cur.execute(
+                    'INSERT INTO leki_magazyn (nazwa, ilosc_sztuk) VALUES (?, ?)',
+                    (nazwa, 0))
                 # Odśwież widok tabeli
                 self.refresh_table()
                 self.conn.commit()
@@ -2049,6 +2060,7 @@ class LekiWindow(QMainWindow):
                 self.cur = self.conn.cursor()
 
                 self.cur.execute("DELETE FROM leki WHERE nazwa = ?", (id_lek,))
+                self.cur.execute("DELETE FROM leki_magazyn WHERE nazwa = ?", (id_lek,))
                 # Odśwież widok tabeli
                 self.refresh_table()
                 self.conn.commit()
